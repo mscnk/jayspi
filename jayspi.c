@@ -80,12 +80,12 @@ static gboolean assert_cs(struct jaylink_device_handle *devh, gboolean enable)
 	int ret;
 
 	if (enable)
-		ret = jaylink_clear_reset(devh);
+		ret = jaylink_jtag_clear_trst(devh);
 	else
-		ret = jaylink_set_reset(devh);
+		ret = jaylink_jtag_set_trst(devh);
 
 	if (ret != JAYLINK_OK) {
-		g_critical("jaylink_clear_reset() failed: %s.",
+		g_critical("jaylink_jtag_clear_trst() failed: %s.",
 			jaylink_strerror(ret));
 		return FALSE;
 	}
