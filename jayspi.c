@@ -305,14 +305,14 @@ int main(int argc, char **argv)
 			jaylink_exit(ctx);
 			return EXIT_FAILURE;
 		}
-	}
 
-	ret = jaylink_select_interface(devh, JAYLINK_TIF_JTAG, NULL);
+		ret = jaylink_select_interface(devh, JAYLINK_TIF_JTAG, NULL);
 
-	if (ret != JAYLINK_OK) {
-		g_critical("jaylink_select_interface() failed: %s.",
-			jaylink_strerror(ret));
-		return 1;
+		if (ret != JAYLINK_OK) {
+			g_critical("jaylink_select_interface() failed: %s.",
+				jaylink_strerror(ret));
+			return 1;
+		}
 	}
 
 	length = fread(mosi, 1, sizeof(mosi), stdin);
