@@ -8,6 +8,7 @@
 
 static uint32_t serial_number;
 static gboolean use_serial_number;
+static gboolean opt_binary;
 
 static gboolean parse_serial_option(const gchar *option_name,
 		const gchar *value, gpointer data, GError **error)
@@ -33,6 +34,8 @@ static gboolean parse_serial_option(const gchar *option_name,
 static GOptionEntry entries[] = {
 	{"serial", 's', 0, G_OPTION_ARG_CALLBACK, &parse_serial_option,
 		"Serial number", NULL},
+	{"binary", 'b', 0, G_OPTION_ARG_NONE, &opt_binary,
+		"Binary output", NULL},
 	{NULL, 0, 0, 0, NULL, NULL, NULL}
 };
 
@@ -162,6 +165,7 @@ int main(int argc, char **argv)
 	size_t num_devices;
 
 	use_serial_number = false;
+	opt_binary = false;
 
 	g_log_set_default_handler(&log_handler, NULL);
 
@@ -325,7 +329,6 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-
 	if (!send_data(devh, mosi, miso, length)) {
 		g_critical("Failed to send data.");
 		jaylink_close(devh);
@@ -333,10 +336,14 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	for (i = 0; i < length; i++)
-		printf("%02x ", miso[i]);
+	if (opt_binary) {
+		fwrite(miso, 1, length, stdout);
+	} else {
+		for (i = 0; i < length; i++)
+			printf("%02x ", miso[i]);
 
-	printf("\n");
+		printf("\n");
+	}
 
 	jaylink_close(devh);
 	jaylink_exit(ctx);
