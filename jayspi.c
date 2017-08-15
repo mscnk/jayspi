@@ -241,12 +241,6 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	ret = jaylink_device_get_serial_number(jaylink_get_device(devh),
-		&tmp);
-
-	if (ret == JAYLINK_OK)
-		g_debug("S/N: %012u", tmp);
-
 	ret = jaylink_get_firmware_version(devh, &firmware_version, &length);
 
 	if (ret != JAYLINK_OK) {
@@ -256,7 +250,6 @@ int main(int argc, char **argv)
                 jaylink_exit(ctx);
                 return EXIT_FAILURE;
 	} else if (length > 0) {
-		g_debug("Firmware: %s", firmware_version);
 		free(firmware_version);
 	}
 
