@@ -9,6 +9,7 @@
 static uint32_t serial_number;
 static gboolean use_serial_number;
 static gboolean opt_binary;
+static gint opt_command_length;
 
 static gboolean parse_serial_option(const gchar *option_name,
 		const gchar *value, gpointer data, GError **error)
@@ -36,6 +37,8 @@ static GOptionEntry entries[] = {
 		"Serial number", NULL},
 	{"binary", 'b', 0, G_OPTION_ARG_NONE, &opt_binary,
 		"Binary output", NULL},
+	{"interactive", 'i', 0, G_OPTION_ARG_INT, &opt_command_length,
+		"Interactive mode <transfer length>", NULL},
 	{NULL, 0, 0, 0, NULL, NULL, NULL}
 };
 
@@ -137,6 +140,43 @@ static gboolean send_data(struct jaylink_device_handle *devh,
 	return TRUE;
 }
 
+static gboolean interactive_mode(struct jaylink_device_handle *devh,
+		uint8_t *mosi, uint8_t *miso)
+{
+	size_t length;
+	size_t i;
+
+	while (true) {
+		length = 0;
+
+		while (length < opt_command_length && !feof(stdin)) {
+			length += fread(mosi, 1, MIN(opt_command_length,
+				opt_command_length - length), stdin);
+		}
+
+		if (feof(stdin))
+			break;
+
+		if (!send_data(devh, mosi, miso, opt_command_length)) {
+			g_critical("Failed to send data.");
+			return FALSE;
+		}
+
+		if (opt_binary) {
+			fwrite(miso, 1, opt_command_length, stdout);
+		} else {
+			for (i = 0; i < length; i++)
+				printf("%02x ", miso[i]);
+
+			printf("\n");
+		}
+
+		fflush(stdout);
+	}
+
+	return TRUE;
+}
+
 static void log_handler(const gchar *domain, GLogLevelFlags level,
 		const gchar *message, gpointer user_data)
 {
@@ -166,11 +206,19 @@ int main(int argc, char **argv)
 
 	use_serial_number = false;
 	opt_binary = false;
+	opt_command_length = 0;
 
 	g_log_set_default_handler(&log_handler, NULL);
 
 	if (!parse_options(&argc, &argv))
 		return EXIT_FAILURE;
+
+	if (opt_command_length > 0 &&
+			opt_command_length > JTAG_MAX_TRANSFER_SIZE) {
+		g_critical("Invalid command length, maximum transfer size is "
+			" %zu bytes.", (size_t)JTAG_MAX_TRANSFER_SIZE);
+		return EXIT_FAILURE;
+	}
 
 	ret = jaylink_init(&ctx);
 
@@ -312,30 +360,37 @@ int main(int argc, char **argv)
 		}
 	}
 
-	length = fread(mosi, 1, sizeof(mosi), stdin);
-
-	if (length > JTAG_MAX_TRANSFER_SIZE) {
-		g_critical("Too much input data, maximum transfer size is "
-			"%zu bytes.", (size_t)JTAG_MAX_TRANSFER_SIZE);
-		jaylink_close(devh);
-		jaylink_exit(ctx);
-		return EXIT_FAILURE;
-	}
-
-	if (!send_data(devh, mosi, miso, length)) {
-		g_critical("Failed to send data.");
-		jaylink_close(devh);
-		jaylink_exit(ctx);
-		return EXIT_FAILURE;
-	}
-
-	if (opt_binary) {
-		fwrite(miso, 1, length, stdout);
+	if (opt_command_length > 0) {
+		if (!interactive_mode(devh, mosi, miso)) {
+			jaylink_close(devh);
+			jaylink_exit(ctx);
+			return EXIT_FAILURE;
+		}
 	} else {
-		for (i = 0; i < length; i++)
-			printf("%02x ", miso[i]);
+		if (length > JTAG_MAX_TRANSFER_SIZE) {
+			g_critical("Too much input data, maximum transfer "
+				"size is %zu bytes.",
+				(size_t)JTAG_MAX_TRANSFER_SIZE);
+			jaylink_close(devh);
+			jaylink_exit(ctx);
+			return EXIT_FAILURE;
+		}
 
-		printf("\n");
+		if (!send_data(devh, mosi, miso, length)) {
+			g_critical("Failed to send data.");
+			jaylink_close(devh);
+			jaylink_exit(ctx);
+			return EXIT_FAILURE;
+		}
+
+		if (opt_binary) {
+			fwrite(miso, 1, length, stdout);
+		} else {
+			for (i = 0; i < length; i++)
+				printf("%02x ", miso[i]);
+
+			printf("\n");
+		}
 	}
 
 	jaylink_close(devh);
