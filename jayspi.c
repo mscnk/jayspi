@@ -367,6 +367,8 @@ int main(int argc, char **argv)
 			return EXIT_FAILURE;
 		}
 	} else {
+		length = fread(mosi, 1, sizeof(mosi), stdin);
+
 		if (length > JTAG_MAX_TRANSFER_SIZE) {
 			g_critical("Too much input data, maximum transfer "
 				"size is %zu bytes.",
