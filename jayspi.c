@@ -10,6 +10,8 @@ static uint32_t serial_number;
 static gboolean use_serial_number;
 static gboolean opt_binary;
 static gint opt_command_length;
+static gboolean opt_assert_cs;
+static gboolean opt_cs_value;
 
 static gboolean parse_serial_option(const gchar *option_name,
 		const gchar *value, gpointer data, GError **error)
@@ -32,6 +34,23 @@ static gboolean parse_serial_option(const gchar *option_name,
 	return TRUE;
 }
 
+static gboolean parse_assert_cs(const gchar *option_name, const gchar *value,
+		gpointer data, GError **error)
+{
+	opt_assert_cs = TRUE;
+
+	if (!g_ascii_strncasecmp(value, "true", 3)) {
+		opt_cs_value = FALSE;
+	} else if (!g_ascii_strncasecmp(value, "false", 4)) {
+		opt_cs_value = TRUE;
+	} else {
+		g_critical("Invalid chip select (CS) value '%s'.", value);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 static GOptionEntry entries[] = {
 	{"serial", 's', 0, G_OPTION_ARG_CALLBACK, &parse_serial_option,
 		"Serial number", NULL},
@@ -39,6 +58,8 @@ static GOptionEntry entries[] = {
 		"Binary output", NULL},
 	{"interactive", 'i', 0, G_OPTION_ARG_INT, &opt_command_length,
 		"Interactive mode <transfer length>", NULL},
+	{"assert-cs", 'c', 0, G_OPTION_ARG_CALLBACK, &parse_assert_cs,
+		"(De-)assert chip select (CS)", NULL},
 	{NULL, 0, 0, 0, NULL, NULL, NULL}
 };
 
@@ -207,6 +228,7 @@ int main(int argc, char **argv)
 	use_serial_number = false;
 	opt_binary = false;
 	opt_command_length = 0;
+	opt_assert_cs = FALSE;
 
 	g_log_set_default_handler(&log_handler, NULL);
 
@@ -299,6 +321,15 @@ int main(int argc, char **argv)
                 return EXIT_FAILURE;
 	} else if (length > 0) {
 		free(firmware_version);
+	}
+
+	if (opt_assert_cs) {
+		if (!assert_cs(devh, opt_cs_value))
+			g_critical("Failed to (de-)assert CS signal.");
+
+		jaylink_close(devh);
+		jaylink_exit(ctx);
+		return EXIT_FAILURE;
 	}
 
 	/* Ensure that chip select (CS) is not asserted. */
