@@ -40,9 +40,9 @@ static gboolean parse_assert_cs(const gchar *option_name, const gchar *value,
 	opt_assert_cs = TRUE;
 
 	if (!g_ascii_strncasecmp(value, "true", 3)) {
-		opt_cs_value = FALSE;
-	} else if (!g_ascii_strncasecmp(value, "false", 4)) {
 		opt_cs_value = TRUE;
+	} else if (!g_ascii_strncasecmp(value, "false", 4)) {
+		opt_cs_value = FALSE;
 	} else {
 		g_critical("Invalid chip select (CS) value '%s'.", value);
 		return FALSE;
